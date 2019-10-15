@@ -2,7 +2,7 @@
 set -e
 eval "$($(dirname $0)/adr-config)"
 
-## usage: adr generate toc [-i INTRO] [-o OUTRO] [-p LINK_PREFIX] [-s]
+## usage: adr generate toc [-i INTRO] [-o OUTRO] [-p LINK_PREFIX] [-s] [-t]
 ##
 ## Generates a table of contents in Markdown format to stdout.
 ##
@@ -13,14 +13,16 @@ eval "$($(dirname $0)/adr-config)"
 ## -p LINK_PREFIX
 ##           prefix each decision file link with LINK_PREFIX.
 ## -s        output the status of each decision.
+## -t        layout the ToC as a table, with dates and status including links.
 ##
 ## Both INTRO and OUTRO must be in Markdown format.
 
-args=$(getopt i:o:p:s $*)
+args=$(getopt i:o:p:st $*)
 set -- $args
 
 link_prefix=
 output_status=
+table_layout=
 
 for arg
 do
@@ -42,6 +44,10 @@ do
             output_status=1
             shift
             ;;
+        -t)
+            table_layout=1
+            shift
+            ;;
         --)
             shift
             break
@@ -60,13 +66,31 @@ then
     echo
 fi
 
+if [ ! -z $table_layout ]; then
+    if [ ! -z $output_status ]; then
+        echo "| ADR | Status | Date |"
+        echo "| :--- | :--- | :--- |"
+    else
+        echo "| ADR | Date |"
+        echo "| --- | --- |"
+    fi
+fi
+
 for f in $("$adr_bin_dir/adr-list")
 do
     title=$("$adr_bin_dir/_adr_title" $f)
     link=${link_prefix}$(basename $f)
-    status=${output_status:+": $("$adr_bin_dir/_adr_status" $f | head -n 1)"}
 
-    echo -e "* [$title]($link)$status"
+    if [ ! -z $table_layout ]; then
+       # TODO pipes need escaping within table cells: sed -e 's/\|/\\\|/g'
+       status=${output_status:+"|$("$adr_bin_dir/_adr_status" $f|awk 'BEGIN {RS=""}{gsub(/\n/, "<br>", $0); print $0}')"}
+       date="$("$adr_bin_dir/_adr_date" $f)"
+       echo -e "|[$title]($link)${status}|${date}|"
+    else
+       status=${output_status:+": $("$adr_bin_dir/_adr_status" $f | head -n 1)"}
+       echo -e "* [$title]($link)$status"
+    fi
+
 done
 
 if [ ! -z $outro ]

@@ -1,0 +1,19 @@
+#!/bin/bash
+set -e
+eval "$($(dirname $0)/adr-config)"
+
+awk '
+BEGIN {
+    DATE="1970-01-01";
+}
+/^# /,/^## Status/ {
+    if (/Date:/) {
+        DATELINE=$0
+    }
+}
+END {
+    if (match(DATELINE, /[0-9]{4}-[0-9]{2}-[0-9]{2}/)) {
+        print substr(DATELINE, RSTART, RLENGTH);
+    }
+}
+' "$("$adr_bin_dir/_adr_file" "$1")"
